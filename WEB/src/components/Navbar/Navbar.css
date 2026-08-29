@@ -48,14 +48,13 @@
   font-size: 1.38rem;
   font-weight: 700;
   letter-spacing: 1.2px;
-  color: var(--color-sagegold-light);
-  text-shadow: 0 1px 2px rgba(60, 56, 38, 0.35);
+  color: #3c3826;
   white-space: nowrap;
   line-height: 1;
 }
 
 .site-header .brand .name span {
-  color: var(--color-sagegold-deep);
+  color: #3c3826;
   font-weight: 700;
   display: inline;
 }
@@ -80,9 +79,9 @@
   font-weight: 600;
   letter-spacing: 0.8px;
   text-transform: uppercase;
-  color: var(--muted);
+  color: #3c3826;
   position: relative;
-  transition: color 0.2s;
+  transition: color 0.2s, opacity 0.2s;
   white-space: nowrap;
   line-height: 1;
 }
@@ -94,12 +93,13 @@
   bottom: -4px;
   height: 1.5px;
   width: 0;
-  background: var(--color-sagegold-deep);
+  background: #3c3826;
   transition: width 0.25s;
 }
 
 .site-header .site-nav ul li:not(.nav-cta-item) a:hover {
-  color: var(--color-sagegold-deep);
+  color: #3c3826;
+  opacity: 0.8;
 }
 
 .site-header .site-nav ul li:not(.nav-cta-item) a:hover::after {
@@ -118,7 +118,7 @@
   justify-content: center;
   background: var(--color-primary-soft);
   border: 1px solid var(--color-primary);
-  color: var(--color-dark-base) !important;
+  color: #3c3826 !important;
   font-weight: 600;
   font-size: 0.82rem;
   letter-spacing: 0.8px;
@@ -156,7 +156,7 @@
 .site-header .nav-toggle span {
   width: 22px;
   height: 2px;
-  background: var(--color-primary);
+  background: #3c3826;
   border-radius: 2px;
   transition: transform 0.2s ease;
 }

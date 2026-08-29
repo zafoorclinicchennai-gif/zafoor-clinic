@@ -59,6 +59,8 @@ export const doctorBanner = {
 export const about = {
   eyebrow: "Who We Are",
   heading: "A Clinic Built Around You",
+  image: "/images/clinic-images/storefront.png",
+  imageAlt: "Zafoor Clinic storefront and glass entrance, Dr. Mufeeda Roohi signage, St. Xavier Street, Broadway, Sevenwells, Chennai",
   text:
     "Located at No 69/70, St. Xavier Street, Broadway, Sevenwells, Chennai - 600001 (Landmark: Opposite Huda Mosque), Zafoor Clinic is a multi-specialty practice offering skin, hair and laser care, diabetes management and general medicine under one roof. Every treatment — from a PRP session to a routine blood pressure check — is carried out under doctor supervision, in a calm and hygienic setting, during accessible evening hours.",
 };

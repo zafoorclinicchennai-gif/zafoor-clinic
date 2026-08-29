@@ -24,8 +24,8 @@ export default function About() {
           <div className="about-media">
             <div className="about-media-frame">
               <img
-                src="/images/clinic-images/storefront.png?v=2"
-                alt="Zafoor Clinic storefront and glass entrance, Dr. Mufeeda Roohi signage, St. Xavier Street, Broadway, Sevenwells, Chennai"
+                src={about.image || "/images/clinic-images/storefront.png"}
+                alt={about.imageAlt || "Zafoor Clinic storefront and glass entrance, Dr. Mufeeda Roohi signage, St. Xavier Street, Broadway, Sevenwells, Chennai"}
                 width="800"
                 height="600"
                 loading="lazy"

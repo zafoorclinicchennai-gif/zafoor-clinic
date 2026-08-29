@@ -27,11 +27,7 @@
 .about-media-frame img {
   width: 100%;
   aspect-ratio: 4 / 5;
-  /* full photo always visible — no crop, ever (matches the Hero's own
-     zero-crop treatment). The photo's own aspect (~4:5) already matches
-     this frame closely, so contain shows it essentially edge-to-edge;
-     the blush background fill only matters as a safety margin. */
-  object-fit: contain;
+  object-fit: cover;
   background: var(--color-blush);
   border-radius: calc(var(--radius) - 3px);
 }
