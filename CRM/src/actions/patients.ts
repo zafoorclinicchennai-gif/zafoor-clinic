@@ -58,6 +58,9 @@ export async function createPatient(input: PatientCoreInput) {
         gender: data.gender,
         bloodGroup: data.bloodGroup ?? "UNKNOWN",
         occupation: data.occupation || null,
+        heightCm: data.heightCm ?? null,
+        weightKg: data.weightKg ?? null,
+        careCategory: data.careCategory,
         phone: data.phone,
         alternatePhone: data.alternatePhone || null,
         email: cleanEmail(data.email),
@@ -77,6 +80,18 @@ export async function createPatient(input: PatientCoreInput) {
             preferredChannel: "SMS",
           },
         },
+        medicalHistory: data.medicalHistoryNotes
+          ? { create: [{ description: data.medicalHistoryNotes }] }
+          : undefined,
+        allergies: data.allergyNotes
+          ? {
+              create: data.allergyNotes
+                .split(",")
+                .map((a) => a.trim())
+                .filter(Boolean)
+                .map((allergen) => ({ allergen })),
+            }
+          : undefined,
       },
     })
 
@@ -126,6 +141,7 @@ export async function registerPatientWithBooking(params: {
         gender: data.gender,
         bloodGroup: data.bloodGroup ?? "UNKNOWN",
         occupation: data.occupation || null,
+        careCategory: data.careCategory,
         phone: data.phone,
         alternatePhone: data.alternatePhone || null,
         email: cleanEmail(data.email),
@@ -227,6 +243,9 @@ export async function updatePatientCore(patientId: string, input: PatientCoreInp
         gender: data.gender,
         bloodGroup: data.bloodGroup ?? "UNKNOWN",
         occupation: data.occupation || null,
+        heightCm: data.heightCm ?? null,
+        weightKg: data.weightKg ?? null,
+        careCategory: data.careCategory,
         phone: data.phone,
         alternatePhone: data.alternatePhone || null,
         email: cleanEmail(data.email),
@@ -383,6 +402,7 @@ export async function getPatientById(patientId: string) {
       medicalAlerts: { orderBy: { createdAt: "desc" } },
       allergies: { orderBy: { notedOn: "desc" } },
       chronicDiseases: { orderBy: { createdAt: "desc" } },
+      medicalHistory: { orderBy: { createdAt: "desc" } },
       documents: { orderBy: { uploadedAt: "desc" } },
       communicationPreference: true,
       registeredBy: true,
@@ -391,6 +411,8 @@ export async function getPatientById(patientId: string) {
   if (!patient) return null
   return {
     ...patient,
+    heightCm: patient.heightCm != null ? Number(patient.heightCm) : null,
+    weightKg: patient.weightKg != null ? Number(patient.weightKg) : null,
     insurances: (patient.insurances || []).map((i) => serializeDecimal(i, ["coverageAmount"])),
     registeredBy: patient.registeredBy ? serializeDecimal(patient.registeredBy, ["consultationFee"]) : null,
   }

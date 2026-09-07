@@ -106,6 +106,14 @@ enum Gender {
   OTHER
 }
 
+// The 3 real treatment categories the clinic offers (zafoorclinic.com) —
+// what the patient is registering to be seen for.
+enum CareCategory {
+  SKIN_HAIR_LASER
+  DIABETOLOGY
+  GENERAL_MEDICINE
+}
+
 enum BloodGroup {
   A_POS
   A_NEG
@@ -132,6 +140,11 @@ model Patient {
   gender         Gender?
   bloodGroup     BloodGroup?   @default(UNKNOWN)
   occupation     String?
+  // Captured at registration for a quick baseline BMI; per-visit vitals still
+  // live on Vitals (tied to an Encounter) — these are just the intake values.
+  heightCm       Decimal?      @db.Decimal(5, 1)
+  weightKg       Decimal?      @db.Decimal(5, 1)
+  careCategory   CareCategory?
   phone          String
   alternatePhone String?
   email          String?
@@ -510,6 +523,12 @@ model WaitingListEntry {
   reason        String?
   priority      Int               @default(0)
   status        WaitingListStatus @default(WAITING)
+  // Mandatory vitals captured at time of waitlisting.
+  bpSystolic    Int
+  bpDiastolic   Int
+  heightCm      Decimal           @db.Decimal(5, 1)
+  weightKg      Decimal           @db.Decimal(5, 1)
+  temperatureC  Decimal           @db.Decimal(4, 1)
   createdAt     DateTime          @default(now())
 
   @@index([patientId])
@@ -1422,5 +1441,19 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([userId])
   @@index([timestamp])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// WhatsApp bulk messaging (Meta WhatsApp Cloud API)
+// ─────────────────────────────────────────────────────────────────────────
+
+model WhatsAppTemplate {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  category  String   @default("General")
+  // Supports {{firstName}}, {{clinicName}}, {{clinicPhone}} placeholders
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 

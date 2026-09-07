@@ -27,6 +27,7 @@ import {
   HelpCircle,
   Boxes,
   ShieldAlert,
+  IndianRupee,
   Pill,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -63,6 +64,7 @@ const navGroups: NavGroup[] = [
       { href: "/waiting-list", label: "Waiting List", icon: Clock },
       { href: "/follow-ups", label: "Follow-ups", icon: CheckSquare },
       { href: "/communications", label: "Communications", icon: MessageSquare },
+      { href: "/communications/whatsapp", label: "WhatsApp Bulk Messaging", icon: MessagesSquare },
     ],
   },
   {
@@ -82,6 +84,7 @@ const navGroups: NavGroup[] = [
     dot: "bg-emerald-500",
     text: "text-emerald-600 dark:text-emerald-400",
     items: [
+      { href: "/payments", label: "Payments", icon: IndianRupee },
       { href: "/billing", label: "Billing", icon: Receipt },
       { href: "/billing/refunds", label: "Refunds", icon: Undo2 },
       { href: "/finance/dashboard", label: "Finance Dashboard", icon: TrendingUp },

@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect, useMemo, useState, useTransition } from "react"
+import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Plus, Trash2 } from "lucide-react"
+import { Plus, Trash2, Upload, Loader2, FileText } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -20,7 +20,9 @@ import { PatientPicker } from "@/components/appointments/patient-picker"
 import { MedicinePicker } from "@/components/billing/medicine-picker"
 import { formatCurrency } from "@/lib/format"
 import { createBill } from "@/actions/billing"
-import { getPatientInsurances } from "@/actions/patients"
+import { getPatientInsurances, addDocument } from "@/actions/patients"
+import { uploadFile } from "@/actions/upload"
+import { compressImageClientSide } from "@/lib/client-image-compress"
 
 type Service = { id: string; name: string; price: unknown }
 type Insurance = { id: string; provider: string; policyNumber: string }
@@ -47,7 +49,25 @@ export function BillForm({
   const [serviceId, setServiceId] = useState("")
   const [discountAmount, setDiscountAmount] = useState("0")
   const [items, setItems] = useState<LineItem[]>(initialItems && initialItems.length > 0 ? initialItems : [{ ...emptyItem }])
+  const [prescriptionFile, setPrescriptionFile] = useState<{ url: string; type: string; name: string } | null>(null)
+  const [uploadingPrescription, setUploadingPrescription] = useState(false)
+  const prescriptionInputRef = useRef<HTMLInputElement>(null)
   const [pending, startTransition] = useTransition()
+
+  async function handlePrescriptionFile(file: File) {
+    setUploadingPrescription(true)
+    try {
+      const compressed = await compressImageClientSide(file)
+      const fd = new FormData()
+      fd.set("file", compressed)
+      const result = await uploadFile(fd)
+      setPrescriptionFile({ url: result.url, type: result.type, name: file.name })
+    } catch {
+      toast.error("Prescription upload failed")
+    } finally {
+      setUploadingPrescription(false)
+    }
+  }
 
   useEffect(() => {
     if (!patientId) {
@@ -117,6 +137,10 @@ export function BillForm({
       toast.error("Select an insurance policy")
       return
     }
+    if (!prescriptionFile) {
+      toast.error("Prescription upload is required before creating a bill")
+      return
+    }
 
     startTransition(async () => {
       try {
@@ -133,6 +157,20 @@ export function BillForm({
             taxRatePercent: Number(it.taxRatePercent) || 0,
           })),
         })
+
+        if (prescriptionFile) {
+          try {
+            await addDocument(patientId, {
+              title: `Prescription — Bill ${bill.billNumber}`,
+              category: "PRESCRIPTION",
+              fileUrl: prescriptionFile.url,
+              fileType: prescriptionFile.type,
+            })
+          } catch {
+            toast.error("Bill created, but the prescription upload failed to save. Please attach it from the patient's Documents tab.")
+          }
+        }
+
         toast.success(`Bill ${bill.billNumber} created`)
         router.push(`/billing/${bill.id}`)
       } catch (err) {
@@ -278,9 +316,46 @@ export function BillForm({
         </CardContent>
       </Card>
 
+      <Card className={!prescriptionFile ? "border-amber-300 dark:border-amber-900/60" : undefined}>
+        <CardHeader><CardTitle className="text-base">Prescription *</CardTitle></CardHeader>
+        <CardContent className="space-y-1.5">
+          <input
+            ref={prescriptionInputRef}
+            type="file"
+            accept="image/*,.pdf"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) handlePrescriptionFile(file)
+            }}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full gap-1.5 justify-start text-muted-foreground"
+            onClick={() => prescriptionInputRef.current?.click()}
+            disabled={uploadingPrescription}
+          >
+            {uploadingPrescription ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : prescriptionFile ? (
+              <FileText className="h-4 w-4 text-primary" />
+            ) : (
+              <Upload className="h-4 w-4" />
+            )}
+            <span className="truncate">
+              {prescriptionFile ? prescriptionFile.name : "Upload prescription (image or PDF) — required"}
+            </span>
+          </Button>
+          <p className="text-[11px] text-muted-foreground">
+            Required to create a bill. Saved to the patient&apos;s Documents tab, linked to this bill.
+          </p>
+        </CardContent>
+      </Card>
+
       <div className="flex justify-end gap-3">
         <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
-        <Button type="submit" disabled={pending}>{pending ? "Creating…" : "Create Bill"}</Button>
+        <Button type="submit" disabled={pending || uploadingPrescription || !prescriptionFile}>{pending ? "Creating…" : "Create Bill"}</Button>
       </div>
     </form>
   )
