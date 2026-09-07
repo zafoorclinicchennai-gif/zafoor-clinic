@@ -96,7 +96,7 @@ export function WhatsAppBlastClient({ templates, tags }: { templates: Template[]
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && search()}
             />
-            <Select value={tagId || "all"} onValueChange={(v) => setTagId(v === "all" ? "" : v)}>
+            <Select value={tagId || "all"} onValueChange={(v) => setTagId(v === "all" || !v ? "" : v)}>
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="Any tag" />
               </SelectTrigger>
@@ -163,7 +163,7 @@ export function WhatsAppBlastClient({ templates, tags }: { templates: Template[]
         <CardContent className="space-y-4">
           <div className="space-y-1.5">
             <Label>Template</Label>
-            <Select value={templateId} onValueChange={applyTemplate}>
+            <Select value={templateId} onValueChange={(id) => id && applyTemplate(id)}>
               <SelectTrigger>
                 <SelectValue placeholder="Pick a saved template (optional)" />
               </SelectTrigger>
@@ -259,7 +259,7 @@ function TemplateManager({ templates }: { templates: Template[] }) {
         </div>
         <div className="space-y-2 border-t pt-3">
           <Input placeholder="Template name (e.g. New Lead Welcome)" value={name} onChange={(e) => setName(e.target.value)} />
-          <Select value={category} onValueChange={setCategory}>
+          <Select value={category} onValueChange={(v) => v && setCategory(v)}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               {["General","Lead Follow-up","Appointment Reminder","Billing","Promotion","Feedback Request"].map((c) => (
