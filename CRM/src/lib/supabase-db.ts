@@ -214,6 +214,18 @@ const RELATION_MAP: Record<string, Record<string, string>> = {
   WebsiteService: {
     service: "service:Service(*)",
   },
+  Campaign: {
+    template: "template:MessageTemplate(*)",
+    createdBy: "createdBy:User!Campaign_createdById_fkey(*)",
+    recipients: "recipients:CampaignRecipient(*)",
+  },
+  CampaignRecipient: {
+    campaign: "campaign:Campaign(*)",
+    patient: "patient:Patient(*)",
+  },
+  MessageTemplate: {
+    campaigns: "campaigns:Campaign(*)",
+  },
 }
 
 function buildSelect(tableName: string, include?: Record<string, any>, select?: Record<string, any>): string {
@@ -706,6 +718,9 @@ const tables = [
   "LabResultItem",
   "Feedback",
   "WhatsAppTemplate",
+  "MessageTemplate",
+  "Campaign",
+  "CampaignRecipient",
 ]
 
 export const db: Record<string, any> = {

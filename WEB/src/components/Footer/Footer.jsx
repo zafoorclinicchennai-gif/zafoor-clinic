@@ -91,9 +91,9 @@ export default function Footer() {
           </a>
         </div>
         <p className="footer-credit">
-          Developed by{" "}
+          Designed and Developed by{" "}
           <a href="https://naazailabs.com" target="_blank" rel="noopener noreferrer">
-            Naazailabs.com
+            Naaz AI Labs
           </a>
         </p>
       </div>

@@ -127,7 +127,6 @@ export default function ContactForm() {
               <button type="submit" className="btn btn-solid contact-submit">
                 Send Message
               </button>
-              <p className="form-msg muted">{contact.form.disclaimer}</p>
             </form>
           </div>
         </div>

@@ -47,3 +47,10 @@ export async function generateAppointmentCode(_tx?: any) {
   const value = await nextValue(`APPOINTMENT-${year}`)
   return `APT-${year}-${String(value).padStart(6, "0")}`
 }
+
+/** RX-2026-000045 */
+export async function generatePrescriptionNumber(_tx?: any) {
+  const year = new Date().getFullYear()
+  const value = await nextValue(`PRESCRIPTION-${year}`)
+  return `RX-${year}-${String(value).padStart(6, "0")}`
+}

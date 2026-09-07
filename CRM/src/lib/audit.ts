@@ -32,10 +32,13 @@ export type AuditAction =
   | "REFUND_CREATED"
   | "USER_LOGIN"
   | "PERMISSION_OVERRIDE"
+  | "PRESCRIPTION_CREATED"
+  | "CAMPAIGN_CREATED"
+  | "CAMPAIGN_PUBLISHED"
 
 interface LogAuditParams {
   action: AuditAction
-  entityType: "Patient" | "Appointment" | "InventoryItem" | "InventoryAlert" | "Bill" | "Payment" | "Refund" | "User" | "System"
+  entityType: "Patient" | "Appointment" | "InventoryItem" | "InventoryAlert" | "Bill" | "Payment" | "Refund" | "User" | "System" | "Prescription" | "Campaign"
   entityId?: string
   metadata?: Record<string, unknown> | null
   userId?: string

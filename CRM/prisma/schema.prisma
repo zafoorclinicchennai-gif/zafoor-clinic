@@ -74,6 +74,8 @@ model User {
   inventoryTransactions InventoryTransaction[] @relation("InventoryPerformedBy")
   auditLogs             AuditLog[]             @relation("AuditUser")
 
+  campaignsCreated Campaign[] @relation("CampaignCreatedBy")
+
   @@index([role])
 }
 
@@ -203,6 +205,8 @@ model Patient {
 
   refunds  Refund[]
   advances PatientAdvance[]
+
+  campaignRecipients CampaignRecipient[]
 
   @@index([phone])
   @@index([email])
@@ -356,6 +360,8 @@ model Document {
   uploadedById String?
   uploadedBy   User?            @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
   uploadedAt   DateTime         @default(now())
+
+  prescription Prescription?
 
   @@index([patientId])
   @@index([category])
@@ -533,19 +539,31 @@ model WaitingListEntry {
 // Prescriptions / Billing / Payments
 // ─────────────────────────────────────────────────────────────────────────
 
+enum PrescriptionSource {
+  DIGITAL
+  SCANNED
+}
+
 model Prescription {
-  id            String       @id @default(cuid())
-  patientId     String
-  patient       Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  doctorId      String
-  doctor        User         @relation("PrescriptionDoctor", fields: [doctorId], references: [id])
-  appointmentId String?
-  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
-  encounterId   String?
-  encounter     Encounter?   @relation(fields: [encounterId], references: [id])
-  diagnosis     String?
-  notes         String?
-  issuedAt      DateTime     @default(now())
+  id                 String             @id @default(cuid())
+  prescriptionNumber String?            @unique
+  patientId          String
+  patient            Patient            @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctorId           String
+  doctor             User               @relation("PrescriptionDoctor", fields: [doctorId], references: [id])
+  appointmentId      String?
+  appointment        Appointment?       @relation(fields: [appointmentId], references: [id])
+  encounterId        String?
+  encounter          Encounter?         @relation(fields: [encounterId], references: [id])
+  source             PrescriptionSource @default(DIGITAL)
+  documentId         String?            @unique
+  document           Document?          @relation(fields: [documentId], references: [id])
+  diagnosis          String?
+  weightAtVisit      String?
+  advice             String?
+  reviewAfter        String?
+  notes              String?
+  issuedAt           DateTime           @default(now())
 
   items PrescriptionItem[]
 
@@ -798,6 +816,67 @@ model Message {
 
   @@index([patientId])
   @@index([channel])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// WhatsApp Broadcasts — bulk campaigns, separate from the one-to-one
+// Message log above. Sending is currently a stub: no WhatsApp Business API
+// credentials are configured anywhere in this repo/environment, so
+// publishCampaign() never contacts a real provider — see ClinicSettings
+// below and src/actions/broadcasts.ts.
+// ─────────────────────────────────────────────────────────────────────────
+
+model MessageTemplate {
+  id                 String    @id @default(cuid())
+  name               String
+  body               String // supports {{patientName}}, {{date}}, {{time}}, {{doctorName}}
+  quickReplyButtons  String[]  @default([])
+  approved           Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+
+  campaigns Campaign[]
+}
+
+enum CampaignStatus {
+  DRAFT
+  QUEUED
+  SENT
+  FAILED
+}
+
+model Campaign {
+  id            String         @id @default(cuid())
+  name          String
+  templateId    String?
+  template      MessageTemplate? @relation(fields: [templateId], references: [id])
+  audienceCount Int            @default(0)
+  status        CampaignStatus @default(DRAFT)
+  createdById   String?
+  createdBy     User?          @relation("CampaignCreatedBy", fields: [createdById], references: [id])
+  createdAt     DateTime       @default(now())
+  sentAt        DateTime?
+
+  recipients CampaignRecipient[]
+}
+
+enum CampaignRecipientStatus {
+  PENDING
+  DELIVERED
+  FAILED
+}
+
+model CampaignRecipient {
+  id         String                   @id @default(cuid())
+  campaignId String
+  campaign   Campaign                 @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  patientId  String
+  patient    Patient                  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  status     CampaignRecipientStatus  @default(PENDING)
+  failReason String?
+  sentAt     DateTime?
+
+  @@index([campaignId])
+  @@index([patientId])
 }
 
 enum NoteCategory {
@@ -1196,6 +1275,13 @@ model ClinicSettings {
 
   heroHeadline String? @default("Trusted healthcare for your everyday health.")
   aboutText    String?
+
+  // WhatsApp Business API connection — stub only. No credentials are
+  // configured anywhere in this repo/environment; Broadcasts (see
+  // src/actions/broadcasts.ts) reads these fields to show a clear
+  // "not connected" state rather than faking a working send.
+  whatsappConfigured Boolean @default(false)
+  whatsappProvider   String?
 
   updatedAt DateTime @updatedAt
 }

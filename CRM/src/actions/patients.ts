@@ -3,8 +3,8 @@
 import { safeRevalidatePath as revalidatePath } from "@/lib/revalidate"
 import { prisma } from "@/lib/prisma"
 import { getCurrentUser, requireRole } from "@/lib/auth"
-import { generateUHID, generateAppointmentCode } from "@/lib/sequence"
-import { serializeDecimal } from "@/lib/serialize"
+import { generateUHID, generateAppointmentCode, generatePrescriptionNumber } from "@/lib/sequence"
+import { serializeDecimal, toPlain } from "@/lib/serialize"
 import { logAudit } from "@/lib/audit"
 import {
   patientCoreSchema,
@@ -26,6 +26,12 @@ import {
   type CommunicationPreferenceInput,
   type DocumentInput,
 } from "@/lib/validations/patient"
+import {
+  prescriptionSchema,
+  scannedPrescriptionSchema,
+  type PrescriptionInput,
+  type ScannedPrescriptionInput,
+} from "@/lib/validations/emr"
 
 function cleanEmail(email?: string) {
   return email && email.length > 0 ? email : undefined
@@ -527,10 +533,11 @@ export async function deleteChronicDisease(patientId: string, id: string) {
 export async function addDocument(patientId: string, input: DocumentInput) {
   const data = documentSchema.parse(input)
   const user = await getCurrentUser()
-  await prisma.document.create({
+  const document = await prisma.document.create({
     data: { ...data, patientId, uploadedById: user.id },
   })
   revalidatePath(`/patients/${patientId}`)
+  return toPlain(document)
 }
 
 export async function deleteDocument(patientId: string, id: string) {
@@ -556,6 +563,7 @@ export async function getPatientPrescriptions(patientId: string) {
     include: {
       doctor: true,
       items: true,
+      document: true,
       encounter: {
         include: { doctor: true, diagnoses: true },
       },
@@ -566,5 +574,139 @@ export async function getPatientPrescriptions(patientId: string) {
     ...p,
     doctor: serializeDecimal(p.doctor, ["consultationFee"]),
   }))
+}
+
+// ── Prescriptions — standalone (not tied to an encounter) ─────────────
+// Two creation modes, both landing in the same Prescription History list:
+// a fillable digital pad (createPrescription) and a scanned-copy upload
+// (createScannedPrescription, which just attaches an already-uploaded
+// Document). See createEncounterPrescription in actions/encounters.ts for
+// the encounter-scoped sibling of this.
+
+export async function createPrescription(
+  patientId: string,
+  doctorId: string,
+  input: PrescriptionInput,
+  appointmentId?: string
+) {
+  const data = prescriptionSchema.parse(input)
+  const user = await getCurrentUser()
+  const prescriptionNumber = await generatePrescriptionNumber()
+
+  const prescription = await prisma.prescription.create({
+    data: {
+      prescriptionNumber,
+      patientId,
+      doctorId,
+      appointmentId: appointmentId || null,
+      source: "DIGITAL",
+      diagnosis: data.diagnosis || null,
+      weightAtVisit: data.weightAtVisit || null,
+      advice: data.advice || null,
+      reviewAfter: data.reviewAfter || null,
+      notes: data.notes || null,
+      items: { create: data.items },
+    },
+    include: { items: true, doctor: true },
+  })
+
+  await logAudit({
+    action: "PRESCRIPTION_CREATED",
+    entityType: "Prescription",
+    entityId: prescription.id,
+    metadata: { prescriptionNumber, patientId, source: "DIGITAL", itemCount: data.items.length },
+    userId: user.id,
+    userName: user.name,
+    userRole: user.role,
+  })
+
+  revalidatePath(`/patients/${patientId}`)
+  revalidatePath("/prescriptions")
+  return toPlain(prescription)
+}
+
+export async function createScannedPrescription(
+  patientId: string,
+  doctorId: string,
+  input: ScannedPrescriptionInput
+) {
+  const data = scannedPrescriptionSchema.parse(input)
+  const user = await getCurrentUser()
+  const prescriptionNumber = await generatePrescriptionNumber()
+
+  const prescription = await prisma.prescription.create({
+    data: {
+      prescriptionNumber,
+      patientId,
+      doctorId,
+      source: "SCANNED",
+      documentId: data.documentId,
+      notes: data.notes || "Scanned copy — see attached file.",
+      issuedAt: data.issuedAt ? new Date(data.issuedAt) : new Date(),
+    },
+    include: { items: true, document: true },
+  })
+
+  await logAudit({
+    action: "PRESCRIPTION_CREATED",
+    entityType: "Prescription",
+    entityId: prescription.id,
+    metadata: { prescriptionNumber, patientId, source: "SCANNED" },
+    userId: user.id,
+    userName: user.name,
+    userRole: user.role,
+  })
+
+  revalidatePath(`/patients/${patientId}`)
+  revalidatePath("/prescriptions")
+  return toPlain(prescription)
+}
+
+export async function getPrescriptions(params: {
+  query?: string
+  from?: string
+  to?: string
+  page?: number
+  pageSize?: number
+}) {
+  const { query, from, to, page = 1, pageSize = 20 } = params
+  const where: Record<string, unknown> = {}
+  if (query) {
+    where.patient = {
+      OR: [
+        { firstName: { contains: query, mode: "insensitive" } },
+        { lastName: { contains: query, mode: "insensitive" } },
+        { uhid: { contains: query, mode: "insensitive" } },
+      ],
+    }
+  }
+  if (from || to) {
+    where.issuedAt = {
+      ...(from ? { gte: new Date(from) } : {}),
+      ...(to ? { lte: new Date(to) } : {}),
+    }
+  }
+
+  const [prescriptions, total] = await Promise.all([
+    prisma.prescription.findMany({
+      where,
+      include: { patient: true, doctor: true, items: true, document: true },
+      orderBy: { issuedAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.prescription.count({ where }),
+  ])
+
+  return { prescriptions: toPlain(prescriptions), total, page, pageSize }
+}
+
+export async function getPrescriptionForBilling(prescriptionId: string) {
+  const prescription = await prisma.prescription.findUnique({
+    where: { id: prescriptionId },
+    include: { items: true, patient: true },
+  })
+  if (!prescription) return null
+  return toPlain(prescription)
 }
 

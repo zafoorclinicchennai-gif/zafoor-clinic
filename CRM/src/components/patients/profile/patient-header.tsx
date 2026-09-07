@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useTransition } from "react"
-import { Pencil, Plus, Phone, Mail, MapPin, Tag as TagIcon, Lock } from "lucide-react"
+import { Pencil, Plus, Phone, Mail, MapPin, Tag as TagIcon, Lock, Pill } from "lucide-react"
 import { toast } from "sonner"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -104,6 +104,18 @@ export function PatientHeader({ patient, allTags }: { patient: Patient; allTags:
               <Link href={`/patients/${patient.id}/edit`}>
                 <Pencil className="h-3.5 w-3.5" />
                 Edit
+              </Link>
+            }
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 h-9 text-xs sm:text-sm"
+            nativeButton={false}
+            render={
+              <Link href={`/prescriptions/new?patientId=${patient.id}`}>
+                <Pill className="h-3.5 w-3.5" />
+                New Prescription
               </Link>
             }
           />

@@ -28,6 +28,7 @@ import {
   Boxes,
   ShieldAlert,
   IndianRupee,
+  Pill,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { hasTabAccess } from "@/lib/permissions"
@@ -59,6 +60,7 @@ const navGroups: NavGroup[] = [
       { href: "/appointments", label: "Appointments", icon: CalendarDays },
       { href: "/queue", label: "Queue", icon: ListOrdered },
       { href: "/inventory", label: "Medicine & Stock", icon: Boxes },
+      { href: "/prescriptions", label: "Prescriptions", icon: Pill },
       { href: "/waiting-list", label: "Waiting List", icon: Clock },
       { href: "/follow-ups", label: "Follow-ups", icon: CheckSquare },
       { href: "/communications", label: "Communications", icon: MessageSquare },

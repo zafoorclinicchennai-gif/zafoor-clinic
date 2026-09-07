@@ -120,9 +120,19 @@ export type PrescriptionItemInput = z.infer<typeof prescriptionItemSchema>
 export const prescriptionSchema = z.object({
   diagnosis: z.string().trim().optional(),
   notes: z.string().trim().optional(),
+  weightAtVisit: z.string().trim().optional(),
+  advice: z.string().trim().optional(),
+  reviewAfter: z.string().trim().optional(),
   items: z.array(prescriptionItemSchema).min(1, "Add at least one medicine"),
 })
 export type PrescriptionInput = z.infer<typeof prescriptionSchema>
+
+export const scannedPrescriptionSchema = z.object({
+  documentId: z.string().trim().min(1, "Attach the scanned file first"),
+  issuedAt: z.string().optional(),
+  notes: z.string().trim().optional(),
+})
+export type ScannedPrescriptionInput = z.infer<typeof scannedPrescriptionSchema>
 
 export const certificateSchema = z.object({
   type: z.enum(["FITNESS", "SICK_LEAVE", "MEDICAL", "OTHER"]),

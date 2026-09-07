@@ -107,6 +107,7 @@ export default async function PatientProfilePage({
         </TabsContent>
         <TabsContent value="prescriptions" className="mt-4">
           <PrescriptionsTab
+            patientId={id}
             patientName={fullName}
             uhid={patient.uhid}
             dob={patient.dob}

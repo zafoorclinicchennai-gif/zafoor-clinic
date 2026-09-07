@@ -128,6 +128,13 @@ function QueueRow({ entry }: { entry: Queue[number] }) {
               render={<Link href={`/patients/${entry.patientId}/encounters/new?appointmentId=${entry.id}`}>EMR Chart</Link>}
             />
           )}
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs"
+            nativeButton={false}
+            render={<Link href={`/prescriptions/new?patientId=${entry.patientId}&appointmentId=${entry.id}`}>Rx</Link>}
+          />
           {isInProgress && (
             <Button
               size="sm"

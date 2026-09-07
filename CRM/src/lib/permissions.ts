@@ -15,6 +15,7 @@ export const ALL_AVAILABLE_TABS: TabItemDefinition[] = [
   { id: "appointments", href: "/appointments", label: "Appointments", group: "Care", description: "Appointment scheduling and daily slot board" },
   { id: "queue", href: "/queue", label: "Today's Queue", group: "Care", description: "Live waiting room, token calling, check-ins" },
   { id: "inventory", href: "/inventory", label: "Medicine & Stock", group: "Care", description: "Medicine dispensing, stock returns, stock alerts" },
+  { id: "prescriptions", href: "/prescriptions", label: "Prescriptions", group: "Care", description: "Digital Rx pad, scanned prescription uploads, cross-patient search" },
   { id: "waiting_list", href: "/waiting-list", label: "Waiting List", group: "Care", description: "Standby patient queue for early openings" },
   { id: "follow_ups", href: "/follow-ups", label: "Follow-ups", group: "Care", description: "Post-consultation follow-up scheduling" },
   { id: "communications", href: "/communications", label: "Communications", group: "Care", description: "Patient SMS, WhatsApp, and call logs" },
@@ -139,6 +140,7 @@ export const DEFAULT_DOCTOR_PERMISSIONS: StaffPermissions = {
     "/calendar",
     "/templates",
     "/settings/signature",
+    "/prescriptions",
   ],
   actionScopes: {
     canBookAppointments: true,
@@ -161,6 +163,7 @@ export const DEFAULT_RECEPTIONIST_PERMISSIONS: StaffPermissions = {
     "/appointments",
     "/queue",
     "/inventory",
+    "/prescriptions",
     "/waiting-list",
     "/follow-ups",
     "/communications",
