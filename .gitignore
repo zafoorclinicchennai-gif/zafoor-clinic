@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Builds
+dist/
+dist-ssr/
+build/
+.next/
+
+# Environment
+.env
+.env*.local
+!.env.example
+
+# Leftover legacy website directory
+website/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+*.tsbuildinfo
+.vercel
