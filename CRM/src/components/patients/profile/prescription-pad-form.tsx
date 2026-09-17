@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { createPrescription, createScannedPrescription, attachPrescriptionPdf } from "@/actions/patients"
+import { createPrescription, updatePrescription, createScannedPrescription, attachPrescriptionPdf } from "@/actions/patients"
 import { uploadFile } from "@/actions/upload"
 import { addDocument } from "@/actions/patients"
 import { logMessage } from "@/actions/crm"
@@ -29,6 +29,16 @@ const emptyItem: Item = { medicineName: "" }
 
 type Doctor = { id: string; name: string; specialization: string | null }
 type PatientInfo = { id: string; name: string; uhid: string; age: number | null; gender: string | null; phone: string }
+type ExistingPrescription = {
+  id: string
+  doctorId: string
+  diagnosis: string | null
+  weightAtVisit: string | null
+  advice: string | null
+  reviewAfter: string | null
+  notes: string | null
+  items: { medicineName: string; dosage: string | null; frequency: string | null; duration: string | null; instructions: string | null }[]
+}
 
 /** wa.me needs digits only, with country code — assume India (91) for a bare 10-digit number. */
 function waLink(phone: string, text: string) {
@@ -42,39 +52,49 @@ export function PrescriptionPadForm({
   doctors,
   defaultDoctorId,
   appointmentId,
+  existingPrescription,
 }: {
   patient: PatientInfo
   doctors: Doctor[]
   defaultDoctorId: string
   appointmentId?: string
+  existingPrescription?: ExistingPrescription | null
 }) {
   const [mode, setMode] = useState<"DIGITAL" | "SCANNED">("DIGITAL")
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
-        <Button
-          type="button"
-          variant={mode === "DIGITAL" ? "default" : "outline"}
-          className="gap-1.5"
-          onClick={() => setMode("DIGITAL")}
-        >
-          <PenLine className="h-4 w-4" />
-          Digital Prescription Pad
-        </Button>
-        <Button
-          type="button"
-          variant={mode === "SCANNED" ? "default" : "outline"}
-          className="gap-1.5"
-          onClick={() => setMode("SCANNED")}
-        >
-          <ScanLine className="h-4 w-4" />
-          Upload Scanned Copy
-        </Button>
-      </div>
+      {!existingPrescription && (
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant={mode === "DIGITAL" ? "default" : "outline"}
+            className="gap-1.5"
+            onClick={() => setMode("DIGITAL")}
+          >
+            <PenLine className="h-4 w-4" />
+            Digital Prescription Pad
+          </Button>
+          <Button
+            type="button"
+            variant={mode === "SCANNED" ? "default" : "outline"}
+            className="gap-1.5"
+            onClick={() => setMode("SCANNED")}
+          >
+            <ScanLine className="h-4 w-4" />
+            Upload Scanned Copy
+          </Button>
+        </div>
+      )}
 
       {mode === "DIGITAL" ? (
-        <DigitalPad patient={patient} doctors={doctors} defaultDoctorId={defaultDoctorId} appointmentId={appointmentId} />
+        <DigitalPad
+          patient={patient}
+          doctors={doctors}
+          defaultDoctorId={defaultDoctorId}
+          appointmentId={appointmentId}
+          existingPrescription={existingPrescription}
+        />
       ) : (
         <ScannedUpload patient={patient} defaultDoctorId={defaultDoctorId} />
       )}
@@ -87,20 +107,32 @@ function DigitalPad({
   doctors,
   defaultDoctorId,
   appointmentId,
+  existingPrescription,
 }: {
   patient: PatientInfo
   doctors: Doctor[]
   defaultDoctorId: string
   appointmentId?: string
+  existingPrescription?: ExistingPrescription | null
 }) {
   const router = useRouter()
   const [doctorId, setDoctorId] = useState(defaultDoctorId)
-  const [diagnosis, setDiagnosis] = useState("")
-  const [weightAtVisit, setWeightAtVisit] = useState("")
-  const [items, setItems] = useState<Item[]>([{ ...emptyItem }])
-  const [advice, setAdvice] = useState("")
-  const [reviewAfter, setReviewAfter] = useState("")
-  const [notes, setNotes] = useState("")
+  const [diagnosis, setDiagnosis] = useState(existingPrescription?.diagnosis ?? "")
+  const [weightAtVisit, setWeightAtVisit] = useState(existingPrescription?.weightAtVisit ?? "")
+  const [items, setItems] = useState<Item[]>(
+    existingPrescription && existingPrescription.items.length > 0
+      ? existingPrescription.items.map((i) => ({
+          medicineName: i.medicineName,
+          dosage: i.dosage ?? undefined,
+          frequency: i.frequency ?? undefined,
+          duration: i.duration ?? undefined,
+          instructions: i.instructions ?? undefined,
+        }))
+      : [{ ...emptyItem }]
+  )
+  const [advice, setAdvice] = useState(existingPrescription?.advice ?? "")
+  const [reviewAfter, setReviewAfter] = useState(existingPrescription?.reviewAfter ?? "")
+  const [notes, setNotes] = useState(existingPrescription?.notes ?? "")
   const [pending, startTransition] = useTransition()
   const [sending, setSending] = useState(false)
 
@@ -127,9 +159,10 @@ function DigitalPad({
     }
   }
 
-  async function saveAndReturn(prescription: Awaited<ReturnType<typeof createPrescription>>) {
-    toast.success(`Prescription ${prescription.prescriptionNumber ?? ""} saved`)
-    router.push(`/patients/${patient.id}?tab=prescriptions`)
+  async function saveOrUpdate(input: ReturnType<typeof currentInput>) {
+    return existingPrescription
+      ? updatePrescription(existingPrescription.id, doctorId, input)
+      : createPrescription(patient.id, doctorId, input, appointmentId)
   }
 
   function handleSave() {
@@ -144,8 +177,9 @@ function DigitalPad({
     }
     startTransition(async () => {
       try {
-        const prescription = await createPrescription(patient.id, doctorId, input, appointmentId)
-        await saveAndReturn(prescription)
+        const prescription = await saveOrUpdate(input)
+        toast.success(`Prescription ${prescription.prescriptionNumber ?? ""} saved`)
+        router.push(`/patients/${patient.id}?tab=prescriptions`)
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Could not save prescription")
       }
@@ -190,7 +224,7 @@ function DigitalPad({
         // Save the prescription, generate its PDF, then open WhatsApp with the
         // summary + a link to the PDF pre-filled — staff sends it themselves.
         // Still logged to Communications too, same as before.
-        const prescription = await createPrescription(patient.id, doctorId, input, appointmentId)
+        const prescription = await saveOrUpdate(input)
         const { publicUrl } = await attachPrescriptionPdf(prescription.id)
         const message = `${body}\n\nView/download PDF: ${publicUrl}`
         await logMessage(patient.id, { channel: "WHATSAPP", subject: "Prescription", body: message })
@@ -309,10 +343,10 @@ function DigitalPad({
           </Button>
           <Button type="button" variant="outline" className="gap-1.5" disabled={pending || sending} onClick={handleSend}>
             <Send className="h-4 w-4" />
-            {sending ? "Sending…" : "Save & Send to Patient"}
+            {sending ? "Sending…" : existingPrescription ? "Update & Send to Patient" : "Save & Send to Patient"}
           </Button>
           <Button type="button" className="gap-1.5" disabled={pending} onClick={handleSave}>
-            {pending ? "Saving…" : "Save Prescription"}
+            {pending ? "Saving…" : existingPrescription ? "Update Prescription" : "Save Prescription"}
           </Button>
         </div>
       </CardContent>
