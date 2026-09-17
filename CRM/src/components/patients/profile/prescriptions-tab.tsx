@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Pill, Printer, Stethoscope, Plus, Receipt, FileText, ScanLine } from "lucide-react"
+import { Pill, Printer, Stethoscope, Plus, Receipt, FileText, ScanLine, Pencil } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -163,15 +163,31 @@ export function PrescriptionsTab({
                         }
                       />
                     ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1.5 text-xs"
-                        onClick={() => handlePrint(prescription)}
-                      >
-                        <Printer className="h-3.5 w-3.5" />
-                        Print Rx
-                      </Button>
+                      <>
+                        {patientId && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5 text-xs"
+                            nativeButton={false}
+                            render={
+                              <Link href={`/prescriptions/new?patientId=${patientId}&prescriptionId=${prescription.id}`}>
+                                <Pencil className="h-3.5 w-3.5" />
+                                Edit
+                              </Link>
+                            }
+                          />
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5 text-xs"
+                          onClick={() => handlePrint(prescription)}
+                        >
+                          <Printer className="h-3.5 w-3.5" />
+                          Print Rx
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>

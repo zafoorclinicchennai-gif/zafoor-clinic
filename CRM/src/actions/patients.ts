@@ -630,6 +630,52 @@ export async function createPrescription(
   return toPlain(prescription)
 }
 
+/** Re-edit a DIGITAL prescription — only its own doctor or an ADMIN may change it. */
+export async function updatePrescription(prescriptionId: string, doctorId: string, input: PrescriptionInput) {
+  const data = prescriptionSchema.parse(input)
+  const user = await getCurrentUser()
+  const existing = await prisma.prescription.findUniqueOrThrow({ where: { id: prescriptionId } })
+
+  if (user.role !== "ADMIN" && user.id !== existing.doctorId) {
+    throw new Error("Forbidden: only the prescribing doctor or an admin can edit this prescription")
+  }
+  if (existing.source !== "DIGITAL") {
+    throw new Error("Scanned prescriptions can't be edited here")
+  }
+
+  await prisma.prescriptionItem.deleteMany({ where: { prescriptionId } })
+  if (data.items.length > 0) {
+    await prisma.prescriptionItem.createMany({ data: data.items.map((item) => ({ ...item, prescriptionId })) })
+  }
+
+  const prescription = await prisma.prescription.update({
+    where: { id: prescriptionId },
+    data: {
+      doctorId,
+      diagnosis: data.diagnosis || null,
+      weightAtVisit: data.weightAtVisit || null,
+      advice: data.advice || null,
+      reviewAfter: data.reviewAfter || null,
+      notes: data.notes || null,
+    },
+    include: { items: true, doctor: true },
+  })
+
+  await logAudit({
+    action: "PRESCRIPTION_UPDATED",
+    entityType: "Prescription",
+    entityId: prescriptionId,
+    metadata: { patientId: existing.patientId, itemCount: data.items.length },
+    userId: user.id,
+    userName: user.name,
+    userRole: user.role,
+  })
+
+  revalidatePath(`/patients/${existing.patientId}`)
+  revalidatePath("/prescriptions")
+  return toPlain(prescription)
+}
+
 /**
  * Renders the prescription to PDF and uploads it to Supabase Storage (the
  * same bucket scanned-copy prescriptions already use via uploadFile) — its
@@ -760,6 +806,15 @@ export async function getPrescriptionForBilling(prescriptionId: string) {
   const prescription = await prisma.prescription.findUnique({
     where: { id: prescriptionId },
     include: { items: true, patient: true },
+  })
+  if (!prescription) return null
+  return toPlain(prescription)
+}
+
+export async function getPrescriptionForEdit(prescriptionId: string) {
+  const prescription = await prisma.prescription.findUnique({
+    where: { id: prescriptionId },
+    include: { items: true, doctor: true },
   })
   if (!prescription) return null
   return toPlain(prescription)
