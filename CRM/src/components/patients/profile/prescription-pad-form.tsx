@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { createPrescription, createScannedPrescription } from "@/actions/patients"
+import { createPrescription, createScannedPrescription, attachPrescriptionPdf } from "@/actions/patients"
 import { uploadFile } from "@/actions/upload"
 import { addDocument } from "@/actions/patients"
 import { logMessage } from "@/actions/crm"
@@ -28,7 +28,14 @@ type Item = { medicineName: string; dosage?: string; frequency?: string; duratio
 const emptyItem: Item = { medicineName: "" }
 
 type Doctor = { id: string; name: string; specialization: string | null }
-type PatientInfo = { id: string; name: string; uhid: string; age: number | null; gender: string | null }
+type PatientInfo = { id: string; name: string; uhid: string; age: number | null; gender: string | null; phone: string }
+
+/** wa.me needs digits only, with country code — assume India (91) for a bare 10-digit number. */
+function waLink(phone: string, text: string) {
+  const digits = phone.replace(/\D/g, "")
+  const withCountryCode = digits.length === 10 ? `91${digits}` : digits
+  return `https://wa.me/${withCountryCode}?text=${encodeURIComponent(text)}`
+}
 
 export function PrescriptionPadForm({
   patient,
@@ -160,26 +167,38 @@ function DigitalPad({
   }
 
   function handleSend() {
+    if (!doctorId) {
+      toast.error("Select the prescribing doctor")
+      return
+    }
     const input = currentInput()
     if (input.items.length === 0) {
       toast.error("Add at least one medicine before sending")
       return
     }
     setSending(true)
+    // Open the tab now, synchronously in the click handler — browsers block
+    // window.open() called after an await (it no longer looks user-initiated).
+    // We navigate this same tab to the wa.me link once it's ready below.
+    const waTab = window.open("", "_blank")
     const lines = input.items
       .map((i) => `• ${i.medicineName}${i.dosage ? ` (${i.dosage})` : ""}${i.frequency ? ` — ${i.frequency}` : ""}${i.duration ? ` x ${i.duration}` : ""}`)
       .join("\n")
     const body = `Prescription from ${selectedDoctor?.name || DOCTOR_LETTERHEAD.name}, ${CLINIC_INFO.name}:\n${input.diagnosis ? `Complaint: ${input.diagnosis}\n` : ""}${lines}${input.advice ? `\nAdvice: ${input.advice}` : ""}${input.reviewAfter ? `\nReview after: ${input.reviewAfter}` : ""}`
     startTransition(async () => {
       try {
-        // Save the prescription first so it's on record, then log the WhatsApp send
-        // via the existing Communications capability (logMessage) — no separate send
-        // mechanism is built here, matching what Communications already supports.
+        // Save the prescription, generate its PDF, then open WhatsApp with the
+        // summary + a link to the PDF pre-filled — staff sends it themselves.
+        // Still logged to Communications too, same as before.
         const prescription = await createPrescription(patient.id, doctorId, input, appointmentId)
-        await logMessage(patient.id, { channel: "WHATSAPP", subject: "Prescription", body })
-        toast.success("Prescription saved and logged to Communications for WhatsApp send")
+        const { publicUrl } = await attachPrescriptionPdf(prescription.id)
+        const message = `${body}\n\nView/download PDF: ${publicUrl}`
+        await logMessage(patient.id, { channel: "WHATSAPP", subject: "Prescription", body: message })
+        if (waTab) waTab.location.href = waLink(patient.phone, message)
+        toast.success("Prescription saved — WhatsApp opened to send")
         router.push(`/patients/${patient.id}?tab=prescriptions`)
       } catch (err) {
+        waTab?.close()
         toast.error(err instanceof Error ? err.message : "Could not send prescription")
       } finally {
         setSending(false)

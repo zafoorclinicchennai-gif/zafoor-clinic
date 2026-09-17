@@ -6,6 +6,7 @@
 // updates the exact same Bill row the Billing page and Finance Dashboard
 // read — one source of truth instead of a separate ledger.
 import { revalidatePath } from "next/cache"
+import { nanoid } from "nanoid"
 import { supabase } from "@/lib/supabase"
 import { requireRole } from "@/lib/auth"
 import { logAudit } from "@/lib/audit"
@@ -102,6 +103,7 @@ export async function setPatientPaymentStatus(billId: string, status: "PAID" | "
     if (remaining > 0.01) {
       const receiptNumber = await generateReceiptNumber()
       const { error: paymentError } = await supabase.from("Payment").insert({
+        id: "paym_" + nanoid(20),
         receiptNumber,
         patientId: bill.patientId,
         billId: bill.id,
