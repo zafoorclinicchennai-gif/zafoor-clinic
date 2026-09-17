@@ -6,6 +6,11 @@ import { getCurrentUser, requireRole } from "@/lib/auth"
 import { generateUHID, generateAppointmentCode, generatePrescriptionNumber } from "@/lib/sequence"
 import { serializeDecimal, toPlain } from "@/lib/serialize"
 import { logAudit } from "@/lib/audit"
+import { calculateAge, patientDisplayName } from "@/lib/format"
+import { renderPrescriptionPdf } from "@/lib/prescription-pdf"
+import { getDoctorSignature } from "@/actions/signature"
+import { supabase, STORAGE_BUCKET } from "@/lib/supabase"
+import { nanoid } from "nanoid"
 import {
   patientCoreSchema,
   familyMemberSchema,
@@ -623,6 +628,56 @@ export async function createPrescription(
   revalidatePath(`/patients/${patientId}`)
   revalidatePath("/prescriptions")
   return toPlain(prescription)
+}
+
+/**
+ * Renders the prescription to PDF and uploads it to Supabase Storage (the
+ * same bucket scanned-copy prescriptions already use via uploadFile) — its
+ * public URL is a stable Supabase domain, so sharing it (WhatsApp, etc.)
+ * never depends on this app's own domain being deployed/known. Links it via
+ * Prescription.documentId, same field scanned-copy prescriptions use.
+ */
+export async function attachPrescriptionPdf(prescriptionId: string) {
+  const prescription = await prisma.prescription.findUniqueOrThrow({
+    where: { id: prescriptionId },
+    include: { items: true, doctor: true, patient: true },
+  })
+
+  const signature = prescription.doctorId
+    ? await getDoctorSignature(prescription.doctorId).catch(() => null)
+    : null
+
+  const pdfBuffer = await renderPrescriptionPdf(
+    { ...prescription, doctor: prescription.doctor },
+    {
+      name: patientDisplayName(prescription.patient),
+      uhid: prescription.patient.uhid,
+      age: calculateAge(prescription.patient.dob),
+      gender: prescription.patient.gender,
+    },
+    signature?.signatureUrl ?? null
+  )
+
+  const storagePath = `prescriptions/${prescriptionId}-${nanoid(12)}.pdf`
+  const { error: uploadError } = await supabase.storage
+    .from(STORAGE_BUCKET)
+    .upload(storagePath, pdfBuffer, { contentType: "application/pdf", cacheControl: "31536000" })
+  if (uploadError) throw new Error(uploadError.message)
+  const { data: publicUrlData } = supabase.storage.from(STORAGE_BUCKET).getPublicUrl(storagePath)
+  const publicUrl = publicUrlData.publicUrl
+
+  const document = await prisma.document.create({
+    data: {
+      patientId: prescription.patientId,
+      title: `Prescription ${prescription.prescriptionNumber ?? prescription.id}`,
+      category: "PRESCRIPTION",
+      fileUrl: publicUrl,
+      fileType: "application/pdf",
+    },
+  })
+  await prisma.prescription.update({ where: { id: prescriptionId }, data: { documentId: document.id } })
+
+  return { publicUrl, sizeBytes: pdfBuffer.length }
 }
 
 export async function createScannedPrescription(

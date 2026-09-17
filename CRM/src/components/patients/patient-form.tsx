@@ -26,8 +26,12 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
 import { PhotoUpload } from "@/components/patients/photo-upload"
 import { bloodGroupLabels, genderLabels, careCategoryLabels } from "@/lib/labels"
+import { format } from "date-fns"
+import { CalendarIcon } from "lucide-react"
 
 function bmiCategory(bmi: number) {
   if (bmi < 18.5) return { label: "Underweight", className: "text-blue-600 dark:text-blue-400" }
@@ -189,19 +193,38 @@ export function PatientForm({
               <FormField
                 control={form.control}
                 name="dob"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Date of birth</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="date"
-                        value={field.value ?? ""}
-                        onChange={(e) => field.onChange(e.target.value)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  const selected = field.value ? new Date(`${field.value}T00:00:00`) : undefined
+                  return (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Date of birth</FormLabel>
+                      <Popover>
+                        <FormControl>
+                          <PopoverTrigger
+                            render={
+                              <Button variant="outline" className="justify-start font-normal">
+                                <CalendarIcon className="h-4 w-4" />
+                                {selected ? format(selected, "dd MMM yyyy") : "Pick a date"}
+                              </Button>
+                            }
+                          />
+                        </FormControl>
+                        <PopoverContent className="w-auto p-0">
+                          <Calendar
+                            mode="single"
+                            captionLayout="dropdown"
+                            startMonth={new Date(1920, 0)}
+                            endMonth={new Date()}
+                            disabled={{ after: new Date() }}
+                            selected={selected}
+                            onSelect={(date) => field.onChange(date ? format(date, "yyyy-MM-dd") : "")}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )
+                }}
               />
               <FormField
                 control={form.control}

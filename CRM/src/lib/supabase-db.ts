@@ -344,9 +344,30 @@ function applyOrder(query: any, orderBy?: any) {
 // back into real Date instances so callers don't have to know the difference.
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?$/
 
+/** Postgres's textual bytea format for values coming back from PostgREST. */
+const PG_BYTEA_HEX_RE = /^\\x[0-9a-f]*$/i
+
+/**
+ * PostgREST has no JSON binary type — a `Bytes` column round-trips as a
+ * `\x`-prefixed hex string (Postgres's bytea text format), not raw bytes.
+ * `serializeBuffers` converts outgoing Buffer values to that format before
+ * insert/update; `hydrateDates` (below) converts it back to a Buffer on read,
+ * so callers can work with plain Buffers like a real Prisma `Bytes` field.
+ */
+function serializeBuffers(payload: Record<string, any>): Record<string, any> {
+  const out: Record<string, any> = {}
+  for (const [key, val] of Object.entries(payload)) {
+    out[key] = Buffer.isBuffer(val) ? `\\x${val.toString("hex")}` : val
+  }
+  return out
+}
+
 function hydrateDates<T>(value: T): T {
   if (value === null || value === undefined) return value
   if (Array.isArray(value)) return value.map(hydrateDates) as any
+  if (typeof value === "string" && PG_BYTEA_HEX_RE.test(value)) {
+    return Buffer.from(value.slice(2), "hex") as any
+  }
   if (typeof value === "string" && ISO_DATE_RE.test(value)) {
     const d = new Date(value)
     return (isNaN(d.getTime()) ? value : d) as any
@@ -388,6 +409,18 @@ function createModelDelegate(tableName: string) {
       return hydrateDates(data)
     },
 
+    async findUniqueOrThrow(args: { where: Record<string, any>; include?: any; select?: any }) {
+      const result = await this.findUnique(args)
+      if (result == null) throw new Error(`No ${tableName} found for the given where clause`)
+      return result
+    },
+
+    async findFirstOrThrow(args?: { where?: Record<string, any>; include?: any; select?: any; orderBy?: any }) {
+      const result = await this.findFirst(args)
+      if (result == null) throw new Error(`No ${tableName} found for the given where clause`)
+      return result
+    },
+
     async findMany(args?: {
       where?: Record<string, any>
       include?: any
@@ -418,7 +451,7 @@ function createModelDelegate(tableName: string) {
 
     async create(args: { data: Record<string, any>; include?: any; select?: any }) {
       const supabase = getSupabase()
-      const payload = { ...args.data }
+      const payload = serializeBuffers(args.data)
       if (!payload.id) {
         payload.id = tableName.toLowerCase().slice(0, 4) + "_" + nanoid(20)
       }
@@ -487,7 +520,7 @@ function createModelDelegate(tableName: string) {
 
     async update(args: { where: Record<string, any>; data: Record<string, any>; include?: any; select?: any }) {
       const supabase = getSupabase()
-      const updateData = { ...args.data }
+      const updateData = serializeBuffers(args.data)
       if (TABLES_WITH_UPDATED_AT.has(tableName) && updateData.updatedAt === undefined) {
         updateData.updatedAt = new Date().toISOString()
       }

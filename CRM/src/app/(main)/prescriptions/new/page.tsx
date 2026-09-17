@@ -38,6 +38,7 @@ export default async function NewPrescriptionPage({
           uhid: patient.uhid,
           age: calculateAge(patient.dob),
           gender: patient.gender,
+          phone: patient.phone,
         }}
         doctors={doctors.map((d) => ({ id: d.id, name: d.name, specialization: d.specialization }))}
         defaultDoctorId={defaultDoctorId}
